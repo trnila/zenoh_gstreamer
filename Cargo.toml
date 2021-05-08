@@ -1,0 +1,31 @@
+[package]
+name = "zenoh_gst"
+version = "1.0.0"
+edition = "2018"
+
+[dependencies]
+zenoh = {git = "https://github.com/eclipse-zenoh/zenoh", branch="master"}
+futures = "0.3.5"
+clap = "2"
+log = "0.4"
+env_logger = "0.8.3"
+gstreamer = "0.16.7"
+gstreamer-video = "0.16.7"
+gstreamer-app = "0.16.5"
+
+
+[dependencies.async-std]
+version = "1.9.0"
+features = ["unstable", "attributes"]
+
+[[bin]]
+name = "send"
+test = false
+bench = false
+path = "src/send.rs"
+
+[[bin]]
+name = "recv"
+test = false
+bench = false
+path = "src/recv.rs"
