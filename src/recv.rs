@@ -41,16 +41,49 @@ async fn main() {
         .expect("Failed to create video info");
 
 
+    let pipe_raw = vec![
+        "appsrc name=src format=time is-live=true caps=video/x-raw,width=640,height=480,format=RGB,framerate=15/1",
+        "videoconvert",
+        "video/x-raw,format=I420",
+        "autovideosink"
+    ];
+
+    let pipe_jpeg = vec![
+        "appsrc name=src is-live=true caps=image/jpeg,width=640,height=480",
+        "jpegdec",
+        "videoconvert",
+        "video/x-raw,format=I420",
+        "autovideosink",
+    ];
+
+    let pipe_x264 = vec![
+        "appsrc name=src is-live=true caps=video/x-h264,stream-format=byte-stream,alignment=au",
+        "queue",
+        "h264parse",
+        "avdec_h264",
+        "videoconvert",
+        "video/x-raw,format=I420",
+        "autovideosink",
+
+    ];
+
+    let pipe_x264_accelerated = vec![
+        "appsrc name=src is-live=true caps=video/x-h264,stream-format=byte-stream,alignment=au",
+        "queue",
+        "h264parse",
+        "nvv4l2decoder",
+        "autovideosink",
+    ];
+
 
     let mut context = gst::ParseContext::new();
-    let pipeline = gst::parse_launch_full("appsrc name=src format=time is-live=true caps=video/x-raw,width=640,height=480,format=RGB,framerate=15/1 ! videoconvert ! video/x-raw,format=I420 !  autovideosink", Some(&mut context), gst::ParseFlags::empty()).unwrap();
-//    let pipeline = gst::parse_launch_full("appsrc name=src format=time is-live=true caps=video/x-raw,width=640,height=480,format=RGB,framerate=15/1 ! appsink name=sink emit-signals=1", Some(&mut context), gst::ParseFlags::empty()).unwrap();
+    let pipeline = gst::parse_launch_full(&pipe_x264.join(" ! "), Some(&mut context), gst::ParseFlags::empty()).unwrap();
 
     pipeline.set_state(gst::State::Playing).unwrap();
     let p = pipeline.dynamic_cast::<gst::Bin>().unwrap();
 
     let src = p.get_by_name("src").unwrap().dynamic_cast::<gst_app::AppSrc>().unwrap();
-    src.set_caps(Some(&video_info.to_caps().unwrap()));
+//    src.set_caps(Some(&video_info.to_caps().unwrap()));
 
 	let (mut tx, mut rx) = mpsc::channel::<gstreamer::Sample>(16);
 
@@ -86,14 +119,17 @@ async fn main() {
 			
 			let now = Instant::now();
 
-			let mut buffer = gst::Buffer::with_size(video_info.size()).unwrap();
+			let mut buffer = gst::Buffer::with_size(sample.payload.to_vec().len()).unwrap();
 			{
-			let buffer = buffer.get_mut().unwrap();
-			let mut vframe = gst_video::VideoFrameRef::from_buffer_ref_writable(buffer, &video_info).unwrap();
-			let mut x = vframe.plane_data_mut(0).unwrap();
+                let buffer = buffer.get_mut().unwrap();
+                buffer.copy_from_slice(0, &sample.payload.to_vec()[..]);
 
-				sample.payload.skip_bytes(72);
-				let a = sample.payload.get_bytes(x);
+
+//                let mut vframe = gst_video::VideoFrameRef::from_buffer_ref_writable(buffer, &video_info).unwrap();
+//                let mut x = vframe.plane_data_mut(0).unwrap();
+
+//				sample.payload.skip_bytes(72);
+//				let a = sample.payload.get_bytes(x);
 			}
 
 			 src.push_buffer(buffer);

@@ -43,11 +43,40 @@ async fn main() {
         .build()
         .expect("Failed to create video info");
 
+    let pipe_raw = vec![
+        "appsrc name=src format=time is-live=true caps=video/x-raw,width=640,height=480,format=RGB,framerate=15/1",
+        "appsink name=sink emit-signals=1"
+    ];
+    let pipe_jpeg = vec![
+        "appsrc name=src format=time is-live=true caps=video/x-raw,width=640,height=480,format=RGB,framerate=30/1",
+        "jpegenc",
+        "appsink name=sink emit-signals=1"
+    ];
+
+    let pipe_x264 = vec![
+        "appsrc name=src format=time is-live=true caps=video/x-raw,width=640,height=480,format=RGB,framerate=15/1",
+        "queue",
+        "videoconvert",
+        "x264enc tune=zerolatency",
+        "appsink name=sink emit-signals=1"
+    ];
+
+    let pipe_x264_accelerated = vec![
+        "appsrc name=src format=time is-live=true caps=video/x-raw,width=640,height=480,format=RGB,framerate=15/1",
+        "queue",
+        "videoconvert",
+        "nvvidconv",
+        "video/x-raw(memory:NVMM),format=(string)I420",
+        "nvv4l2h264enc insert-sps-pps=1",
+        "h264parse",
+        "queue",
+        "appsink name=sink emit-signals=1"
+    ];
 
 
     let mut context = gst::ParseContext::new();
     //let pipeline = gst::parse_launch_full("appsrc name=src format=time is-live=true caps=video/x-raw,width=640,height=480,format=RGB,framerate=15/1 ! videoconvert ! video/x-raw,format=I420 !  autovideosink", Some(&mut context), gst::ParseFlags::empty()).unwrap();
-    let pipeline = gst::parse_launch_full("appsrc name=src format=time is-live=true caps=video/x-raw,width=640,height=480,format=RGB,framerate=15/1 ! appsink name=sink emit-signals=1", Some(&mut context), gst::ParseFlags::empty()).unwrap();
+    let pipeline = gst::parse_launch_full(&pipe_x264_accelerated.join(" ! "), Some(&mut context), gst::ParseFlags::empty()).unwrap();
 
     pipeline.set_state(gst::State::Playing).unwrap();
     let p = pipeline.dynamic_cast::<gst::Bin>().unwrap();
